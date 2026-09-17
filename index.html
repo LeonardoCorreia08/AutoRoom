@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Controle e Eficiência</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #0d0d0d;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0; 
+        }
+
+        .navbar {
+            background-color: #111;
+            border-bottom: 2px solid #333;
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            padding: 10px 0 0 0;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background-color: #1a1a1a;
+            color: #888;
+            border: 1px solid #333;
+            border-bottom: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 10px 10px 0 0;
+            transition: 0.3s;
+        }
+
+        .tab-btn:hover { color: #00ffff; background-color: #222; }
+        .tab-btn.active {
+            background-color: #0d0d0d;
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            border-bottom: 2px solid #0d0d0d;
+            box-shadow: 0 -5px 15px rgba(0, 255, 255, 0.1);
+            margin-bottom: -2px; 
+        }
+
+        .header { text-align: center; margin-bottom: 30px; position: relative; }
+        .header h1 { margin: 0; font-size: 28px; color: #00ffff; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5); }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #aaaaaa; }
+
+        .btn-emergency {
+            background-color: #ff3333; color: #fff; border: 1px solid #ff0000; padding: 8px 15px; font-weight: bold; font-family: 'Courier New', Courier, monospace; cursor: pointer; border-radius: 5px; margin-top: 15px; box-shadow: 0 0 10px rgba(255, 51, 51, 0.5); transition: 0.3s;
+        }
+        .btn-emergency:hover { background-color: #cc0000; box-shadow: 0 0 20px rgba(255, 51, 51, 0.8); }
+        .btn-emergency:active { transform: scale(0.95); }
+
+        .btn-master-off {
+            background-color: #ffaa00; color: #000; border: 1px solid #ff9900; padding: 10px 20px; font-size: 16px; font-weight: bold; font-family: 'Courier New', Courier, monospace; cursor: pointer; border-radius: 5px; margin-top: 15px; box-shadow: 0 0 10px rgba(255, 170, 0, 0.5); transition: 0.3s;
+        }
+        .btn-master-off:hover { background-color: #e69900; box-shadow: 0 0 20px rgba(255, 170, 0, 0.8); }
+        .btn-master-off:active { transform: scale(0.95); }
+
+        .critical-alert { display: none; background-color: #800000; color: #ffcccc; border: 2px solid #ff3333; padding: 15px; text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 25px; border-radius: 8px; animation: pulse-alert 1.5s infinite; }
+        @keyframes pulse-alert { 0% { box-shadow: 0 0 5px #ff3333; } 50% { box-shadow: 0 0 20px #ff3333; } 100% { box-shadow: 0 0 5px #ff3333; } }
+
+        .tab-content { display: none; padding: 0 20px 20px 20px; animation: fadeIn 0.5s; max-width: 1300px; margin: 0 auto; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .dashboard-gauge { width: 300px; margin: 0 auto 30px auto; position: relative; text-align: center; }
+        .dashboard-gauge svg { width: 100%; drop-shadow: 0 0 10px #00ff00; transition: all 0.5s ease; }
+        .gauge-text { position: absolute; bottom: 20px; width: 100%; font-size: 32px; font-weight: bold; color: #00ff00; text-shadow: 0 0 10px rgba(0, 255, 0, 0.8); transition: color 0.5s; }
+        .gauge-label { position: absolute; bottom: -5px; width: 100%; font-size: 14px; color: #888; }
+
+        .container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; }
+
+        .card { background: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; box-shadow: inset 0 0 15px rgba(0,0,0,0.8), 0 4px 10px rgba(0,0,0,0.5); }
+        .card-large { grid-column: 1 / -1; }
+        .card h2 { margin-top: 0; font-size: 16px; color: #ffffff; border-bottom: 1px solid #333; padding-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+        .status { font-size: 18px; font-weight: bold; margin: 15px 0; text-align: center; padding: 10px; border-radius: 5px; background: #000; transition: all 0.3s ease; }
+        .status.on { color: #00ff00; border: 1px solid #00ff00; box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); }
+        .status.off { color: #ff3333; border: 1px solid #ff3333; box-shadow: 0 0 10px rgba(255, 51, 51, 0.2); }
+        .status.sensor-on { color: #00ffff; border: 1px solid #00ffff; box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); }
+        .status.offline { color: #888; border: 1px solid #555; background: #222; box-shadow: none; }
+
+        .info-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 13px; color: #aaa; }
+        .info-row span:last-child { color: #fff; font-weight: bold; }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; text-transform: uppercase; transition: 0.3s; }
+        .btn-on { background-color: #004d00; color: #00ff00; border: 1px solid #00ff00; }
+        .btn-on:hover:not(:disabled) { background-color: #00ff00; color: #000; box-shadow: 0 0 15px rgba(0, 255, 0, 0.6); }
+        .btn-off { background-color: #4d0000; color: #ff3333; border: 1px solid #ff3333; }
+        .btn-off:hover:not(:disabled) { background-color: #ff3333; color: #000; box-shadow: 0 0 15px rgba(255, 51, 51, 0.6); }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; background-color: #333 !important; border-color: #555 !important; color: #777 !important; box-shadow: none !important; }
+
+        .economy-panel { border: 1px solid #00ffff; box-shadow: inset 0 0 15px rgba(0,255,255,0.1), 0 4px 10px rgba(0,0,0,0.5); }
+        .economy-panel h2 { color: #00ffff; border-bottom: 1px solid #00ffff; }
+
+        .value-display { font-size: 24px; font-weight: bold; text-align: center; margin: 15px 0; padding: 10px; border-radius: 5px; background: #000; }
+        .expense-value { color: #ffaa00; text-shadow: 0 0 10px rgba(255, 170, 0, 0.6); border: 1px solid #ffaa00; }
+        .savings-value { color: #00ff00; text-shadow: 0 0 10px rgba(0, 255, 0, 0.8); border: 1px solid #00ff00; margin-top: 15px; }
+        
+        .chart-container { position: relative; height: 300px; width: 100%; }
+
+        /* Estilos da Lista de 1 a 10 e seus novos horários */
+        .room-list-container { display: flex; flex-direction: column; gap: 15px; }
+        .room-row { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 15px 25px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); }
+        .room-header { display: flex; align-items: center; gap: 15px; min-width: 200px; }
+        .room-header h2 { margin: 0; color: #fff; font-size: 20px; letter-spacing: 1px; }
+        .temp-badge { background: #000; border: 1px solid #00ffff; color: #00ffff; padding: 5px 10px; border-radius: 5px; font-size: 16px; font-weight: bold; box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); }
+        
+        .room-controls { display: flex; gap: 25px; flex-wrap: wrap; }
+        
+        /* Novo Container para agrupar Botão + Letreiro de Horário */
+        .control-container { background: #000; padding: 8px 12px; border-radius: 6px; border: 1px solid #222; display: flex; flex-direction: column; gap: 6px; min-width: 210px; }
+        .control-group { display: flex; align-items: center; gap: 10px; }
+        .control-label { color: #aaa; font-size: 14px; text-transform: uppercase; width: 80px; display: inline-block;}
+        
+        .schedule-info { display: flex; justify-content: space-between; font-size: 11px; color: #888; border-top: 1px dashed #333; padding-top: 5px; }
+        .schedule-info span { color: #aaa; }
+
+        .btn-mini { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; font-family: 'Courier New', Courier, monospace; }
+        .btn-mini.on { background-color: #004d00; color: #00ff00; border: 1px solid #00ff00; }
+        .btn-mini.on:hover { background-color: #00ff00; color: #000; box-shadow: 0 0 10px rgba(0, 255, 0, 0.5); }
+        .btn-mini.off { background-color: #4d0000; color: #ff3333; border: 1px solid #ff3333; }
+        .btn-mini.off:hover { background-color: #ff3333; color: #000; box-shadow: 0 0 10px rgba(255, 51, 51, 0.5); }
+        
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0;}
+        .dot-on { background-color: #00ff00; box-shadow: 0 0 8px #00ff00; }
+        .dot-off { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <button class="tab-btn active" onclick="openTab(event, 'tab-controle')">Controle: Sala 01</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-salas')">Gestão de Salas</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-lista-salas')">Lista de Salas (1 a 10)</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-gastos')">Análise de Gastos</button>
+    </div>
+
+    <!-- ==================== ABA 1: CONTROLE SALA 01 ==================== -->
+    <div id="tab-controle" class="tab-content" style="display: block;">
+        <div class="header">
+            <h1>Painel - Sala 01</h1>
+            <p>Status em Tempo Real</p>
+            <button class="btn-emergency" onclick="simularQuedaEnergia()" id="btnQuedaLuz">⚡ SIMULAR QUEDA DE ENERGIA</button>
+        </div>
+
+        <div class="critical-alert" id="alerta-offline">
+            ⚠️ ALERTA CRÍTICO: Conexão Perdida. Possível Queda de Energia na Sala 01.
+        </div>
+
+        <div class="dashboard-gauge">
+            <svg viewBox="0 0 100 55" id="svg-gauge">
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                <path id="ponteiro-gauge" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#00ff00" stroke-width="8" stroke-linecap="round" stroke-dasharray="125" stroke-dashoffset="60" style="transition: all 1s ease;" />
+            </svg>
+            <div class="gauge-text" id="valor-consumo">1.4 kW/h</div>
+            <div class="gauge-label">Consumo Atual</div>
+        </div>
+
+        <div class="container" id="container-sala01">
+            <!-- SENSOR -->
+            <div class="card card-dispositivo">
+                <h2>Sensor (wifi)</h2>
+                <div class="status sensor-on">SALA OCUPADA</div>
+                <div class="info-row"><span>Micro-movimentos:</span><span style="color: #00ffff;">Detectados</span></div>
+                <div class="info-row"><span>Freq. Média:</span><span>~75 BPM</span></div>
+            </div>
+
+            <!-- AR CONDICIONADO -->
+            <div class="card card-dispositivo" id="card-ac">
+                <h2>Ar Condicionado</h2>
+                <div class="status on">LIGADO</div>
+                <div class="info-row"><span>Ligou às:</span><span>08:00</span></div>
+                <div class="info-row"><span>Desliga às:</span><span>18:00</span></div>
+                <div class="btn-group">
+                    <button class="btn btn-on" onclick="toggleDevice('card-ac', true)">Ligar</button>
+                    <button class="btn btn-off" onclick="toggleDevice('card-ac', false)">Desligar</button>
+                </div>
+            </div>
+
+            <!-- DATASHOW -->
+            <div class="card card-dispositivo" id="card-datashow">
+                <h2>Datashow</h2>
+                <div class="status off">DESLIGADO</div>
+                <div class="info-row"><span>Ligou às:</span><span>--:--</span></div>
+                <div class="info-row"><span>Próx. agendamento:</span><span>14:00</span></div>
+                <div class="btn-group">
+                    <button class="btn btn-on" onclick="toggleDevice('card-datashow', true)">Ligar</button>
+                    <button class="btn btn-off" onclick="toggleDevice('card-datashow', false)">Desligar</button>
+                </div>
+            </div>
+
+            <!-- ILUMINAÇÃO (LUZ) -->
+            <div class="card card-dispositivo" id="card-luz">
+                <h2>Iluminação (Sonoff)</h2>
+                <div class="status on">LIGADA</div>
+                <div class="info-row"><span>Ligou às:</span><span>07:30</span></div>
+                <div class="info-row"><span>Desliga às:</span><span>18:30</span></div>
+                <div class="btn-group">
+                    <button class="btn btn-on" onclick="toggleDevice('card-luz', true)">Ligar</button>
+                    <button class="btn btn-off" onclick="toggleDevice('card-luz', false)">Desligar</button>
+                </div>
+            </div>
+            
+            <div class="card economy-panel">
+                <h2>Eficiência Financeira</h2>
+                <div class="info-row"><span>Tempo ocioso evitado:</span><span>2h 15m</span></div>
+                <div class="value-display savings-value">Economia: R$ 3,20</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ABA 2: GESTÃO DE SALAS ==================== -->
+    <div id="tab-salas" class="tab-content">
+        <div class="header">
+            <h1>Visão Geral do Prédio</h1>
+            <p>Monitoramento Simultâneo de Múltiplos Ambientes</p>
+        </div>
+        <div class="container">
+            <div class="card economy-panel">
+                <h2>Sala 01 - Laboratório</h2>
+                <div class="status sensor-on">OCUPADA</div>
+                <div class="info-row"><span>Ar Condicionado:</span><span style="color: #00ff00;">LIGADO</span></div>
+                <div class="info-row"><span>Datashow:</span><span style="color: #ff3333;">DESLIGADO</span></div>
+                <div class="info-row"><span>Consumo Atual:</span><span>1.4 kW/h</span></div>
+                <button class="btn btn-on" style="width: 100%; margin-top: 15px;" onclick="openTab(event, 'tab-controle')">Acessar Painel</button>
+            </div>
+            <div class="card">
+                <h2>Sala 02 - Reunião</h2>
+                <div class="status off">VAZIA (Corte de Energia)</div>
+                <div class="info-row"><span>Ar Condicionado:</span><span style="color: #ff3333;">DESLIGADO</span></div>
+                <div class="info-row"><span>Iluminação:</span><span style="color: #ff3333;">DESLIGADO</span></div>
+                <div class="info-row"><span>Consumo Atual:</span><span>0.0 kW/h</span></div>
+                <button class="btn btn-off" style="width: 100%; margin-top: 15px;">Equipamentos em Standby</button>
+            </div>
+            <div class="card">
+                <h2>Sala 03 - Auditório</h2>
+                <div class="status sensor-on">OCUPADA</div>
+                <div class="info-row"><span>Ar Condicionado 1:</span><span style="color: #00ff00;">LIGADO</span></div>
+                <div class="info-row"><span>Ar Condicionado 2:</span><span style="color: #00ff00;">LIGADO</span></div>
+                <div class="info-row"><span>Consumo Atual:</span><span style="color: #ffaa00;">3.8 kW/h</span></div>
+                <button class="btn btn-off" style="width: 100%; margin-top: 15px; border-color: #ffaa00; color: #ffaa00;">Alerta de Alto Consumo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ABA 3: LISTA 1 A 10 ==================== -->
+    <div id="tab-lista-salas" class="tab-content">
+        <div class="header">
+            <h1>Controle Central em Lote</h1>
+            <p>Monitoramento Dinâmico de 10 Ambientes</p>
+            <button class="btn-master-off" onclick="desligarTudoMaster()">🔌 DESLIGAR TODAS AS SALAS</button>
+        </div>
+        <div id="lista-salas-container" class="room-list-container">
+            <!-- Gerado via JS -->
+        </div>
+    </div>
+
+    <!-- ==================== ABA 4: GASTOS ==================== -->
+    <div id="tab-gastos" class="tab-content">
+        <div class="header">
+            <h1>Inteligência Energética</h1>
+            <p>Relatórios Avançados de Consumo e Economia</p>
+        </div>
+        <div class="container">
+            <div class="card economy-panel">
+                <h2>Métricas de Desempenho</h2>
+                <div class="value-display expense-value" style="font-size: 20px;">Gasto Acumulado (Mês): R$ 342,50</div>
+                <div class="info-row"><span>Mês contra Mês (MoM):</span><span style="color: #00ff00;">-18.2% (Economia)</span></div>
+                <div class="info-row"><span>Ano contra Ano (YoY):</span><span style="color: #00ff00;">-25.4% (Economia)</span></div>
+                <div class="info-row"><span>Projeção (fim do ano):</span><span style="color: #00ffff;">R$ 1.250,00 salvos</span></div>
+            </div>
+            <div class="card"><h2>Comparativo: Hoje x Ontem</h2><div class="chart-container" style="height: 200px;"><canvas id="chartDias"></canvas></div></div>
+            <div class="card"><h2>Distribuição de Carga</h2><div class="chart-container" style="height: 200px;"><canvas id="chartEquipamentos"></canvas></div></div>
+            <div class="card card-large"><h2>Consumo Histórico (Últimos 7 Dias)</h2><div class="chart-container" style="height: 300px;"><canvas id="chartSemana"></canvas></div></div>
+            <div class="card card-large"><h2>Comparativo Anual (Consumo em kW/h)</h2><div class="chart-container" style="height: 350px;"><canvas id="chartAnual"></canvas></div></div>
+        </div>
+    </div>
+
+    <!-- ==================== SCRIPTS ==================== -->
+    <script>
+        // --- FUNÇÃO LIGAR/DESLIGAR (SALA 01 - INDIVIDUAL) ---
+        function toggleDevice(cardId, ligar) {
+            const card = document.getElementById(cardId);
+            const statusDiv = card.querySelector('.status');
+            
+            if (statusDiv.classList.contains('offline')) return;
+
+            // Busca os campos de hora da linha 1 e linha 2
+            const spanLabel1 = card.querySelectorAll('.info-row span:first-child')[0];
+            const spanValue1 = card.querySelectorAll('.info-row span:last-child')[0];
+            const spanLabel2 = card.querySelectorAll('.info-row span:first-child')[1];
+            const spanValue2 = card.querySelectorAll('.info-row span:last-child')[1];
+
+            // Pega hora atual do sistema
+            const now = new Date();
+            const horaAtual = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+            if (ligar) {
+                statusDiv.textContent = (cardId === 'card-luz') ? 'LIGADA' : 'LIGADO';
+                statusDiv.className = 'status on';
+                
+                // Atualiza textos ao ligar
+                spanLabel1.textContent = 'Ligou às:';
+                spanValue1.textContent = horaAtual;
+                spanLabel2.textContent = 'Desliga às:';
+                spanValue2.textContent = '22:00';
+            } else {
+                statusDiv.textContent = (cardId === 'card-luz') ? 'DESLIGADA' : 'DESLIGADO';
+                statusDiv.className = 'status off';
+                
+                // Atualiza textos ao desligar
+                spanLabel1.textContent = 'Ligou às:';
+                spanValue1.textContent = '--:--';
+                spanLabel2.textContent = 'Próx. agendamento:';
+                spanValue2.textContent = '08:00';
+            }
+        }
+
+        // --- FUNÇÃO LIGAR/DESLIGAR (LISTA DE SALAS 1 A 10) ---
+        function setDeviceStatus(roomId, device, state) {
+            const dot = document.getElementById(`dot-${device}-${roomId}`);
+            const schedule = document.getElementById(`sched-${device}-${roomId}`);
+            
+            // Pega a hora atual do sistema
+            const now = new Date();
+            const horaAtual = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+            if (state === 'on') {
+                dot.className = 'status-dot dot-on';
+                schedule.innerHTML = `<span>Ligou: ${horaAtual}</span><span>Desliga: 22:00</span>`;
+            } else {
+                dot.className = 'status-dot dot-off';
+                schedule.innerHTML = `<span>Ligou: --:--</span><span>Próx: 08:00</span>`;
+            }
+        }
+
+        // --- NOVA FUNÇÃO: DESLIGAR TUDO MASTER ---
+        function desligarTudoMaster() {
+            const horaAtual = new Date().getHours();
+            
+            // Se for antes das 22h, exige confirmação
+            if (horaAtual < 22) {
+                const confirmar = confirm("⚠️ ATENÇÃO: Tem certeza que deseja desligar TODAS as salas?\nPode haver aulas em andamento neste horário.");
+                if (!confirmar) return; // Cancela a ação
+            }
+            
+            // Desliga todos os 3 equipamentos das 10 salas
+            for(let i = 1; i <= 10; i++) {
+                let num = i.toString().padStart(2, '0');
+                setDeviceStatus(num, 'ar', 'off');
+                setDeviceStatus(num, 'data', 'off');
+                setDeviceStatus(num, 'luz', 'off');
+            }
+            alert("✅ Todos os equipamentos (Ar, Datashow e Luzes) foram desligados com sucesso.");
+        }
+
+        // --- SIMULADOR DE QUEDA DE ENERGIA (SALA 01) ---
+        let salaComEnergia = true;
+        function simularQuedaEnergia() {
+            salaComEnergia = !salaComEnergia;
+            const btnSimular = document.getElementById('btnQuedaLuz');
+            const alerta = document.getElementById('alerta-offline');
+            const ponteiro = document.getElementById('ponteiro-gauge');
+            const valorConsumo = document.getElementById('valor-consumo');
+            
+            const cardsDispositivos = document.querySelectorAll('.card-dispositivo');
+
+            if (!salaComEnergia) {
+                // CAI A LUZ
+                btnSimular.textContent = "🔌 RESTAURAR ENERGIA";
+                btnSimular.style.backgroundColor = "#27ae60";
+                btnSimular.style.borderColor = "#2ecc71";
+                alerta.style.display = "block"; 
+                
+                ponteiro.style.strokeDashoffset = "125"; 
+                ponteiro.style.stroke = "#ff3333"; 
+                valorConsumo.textContent = "0.0 kW/h";
+                valorConsumo.style.color = "#ff3333";
+
+                cardsDispositivos.forEach(card => {
+                    const status = card.querySelector('.status');
+                    status.textContent = 'OFFLINE';
+                    status.className = 'status offline';
+
+                    const infosValues = card.querySelectorAll('.info-row span:last-child');
+                    infosValues.forEach(info => { info.textContent = '--'; info.style.color = '#777'; });
+
+                    const botoes = card.querySelectorAll('.btn');
+                    botoes.forEach(btn => { btn.disabled = true; });
+                });
+
+            } else {
+                // VOLTA A LUZ
+                btnSimular.textContent = "⚡ SIMULAR QUEDA DE ENERGIA";
+                btnSimular.style.backgroundColor = "#ff3333";
+                btnSimular.style.borderColor = "#ff0000";
+                alerta.style.display = "none";
+                
+                ponteiro.style.strokeDashoffset = "60"; 
+                ponteiro.style.stroke = "#00ff00"; 
+                valorConsumo.textContent = "1.4 kW/h";
+                valorConsumo.style.color = "#00ff00";
+
+                // Restaura status original (Ar e Luz ligados, Datashow desligado)
+                document.getElementById('card-ac').querySelector('.status').textContent = 'LIGADO';
+                document.getElementById('card-ac').querySelector('.status').className = 'status on';
+                
+                document.getElementById('card-datashow').querySelector('.status').textContent = 'DESLIGADO';
+                document.getElementById('card-datashow').querySelector('.status').className = 'status off';
+                
+                document.getElementById('card-luz').querySelector('.status').textContent = 'LIGADA';
+                document.getElementById('card-luz').querySelector('.status').className = 'status on';
+
+                document.querySelectorAll('.card-dispositivo')[0].querySelector('.status').textContent = 'SALA OCUPADA';
+                document.querySelectorAll('.card-dispositivo')[0].querySelector('.status').className = 'status sensor-on';
+                
+                cardsDispositivos.forEach(card => {
+                    const botoes = card.querySelectorAll('.btn');
+                    botoes.forEach(btn => btn.disabled = false);
+                });
+                
+                // Restaura os textos estáticos via DOM
+                const labels = document.querySelectorAll('#container-sala01 .card-dispositivo .info-row span:first-child');
+                const values = document.querySelectorAll('#container-sala01 .card-dispositivo .info-row span:last-child');
+                
+                // Sensor
+                values[0].textContent = "Detectados"; values[0].style.color = "#00ffff"; 
+                values[1].textContent = "~75 BPM";    values[1].style.color = "#fff";    
+                // Ar
+                labels[2].textContent = "Ligou às:";  values[2].textContent = "08:00"; values[2].style.color = "#fff";
+                labels[3].textContent = "Desliga às:"; values[3].textContent = "18:00"; values[3].style.color = "#fff";
+                // Datashow
+                labels[4].textContent = "Ligou às:";  values[4].textContent = "--:--"; values[4].style.color = "#fff";
+                labels[5].textContent = "Próx. agendamento:"; values[5].textContent = "14:00"; values[5].style.color = "#fff";
+                // Luz
+                labels[6].textContent = "Ligou às:";  values[6].textContent = "07:30"; values[6].style.color = "#fff";
+                labels[7].textContent = "Desliga às:"; values[7].textContent = "18:30"; values[7].style.color = "#fff";
+            }
+        }
+
+        // --- SISTEMA DE ABAS ---
+        let chartsRendered = false;
+        function openTab(evt, tabName) {
+            const tabcontent = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
+            const tablinks = document.getElementsByClassName("tab-btn");
+            for (let i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
+            document.getElementById(tabName).style.display = "block";
+            if(evt && evt.currentTarget.classList.contains('tab-btn')) evt.currentTarget.className += " active";
+            else document.getElementsByClassName("tab-btn")[0].className += " active";
+
+            if (tabName === 'tab-gastos' && !chartsRendered) {
+                renderCharts();
+                chartsRendered = true;
+            }
+        }
+
+        // --- GERADOR DE 10 SALAS COM CONTÊINER DE HORÁRIO ---
+        function renderizarSalas() {
+            const container = document.getElementById('lista-salas-container');
+            let html = '';
+            for(let i = 1; i <= 10; i++) {
+                let num = i.toString().padStart(2, '0');
+                let temp = Math.floor(Math.random() * (26 - 20 + 1)) + 20;
+                
+                html += `
+                <div class="room-row" id="sala-${num}">
+                    <div class="room-header">
+                        <h2>Sala ${num}</h2>
+                        <div class="temp-badge">${temp}°C</div>
+                    </div>
+                    <div class="room-controls">
+                        
+                        <!-- AR CONDICIONADO -->
+                        <div class="control-container">
+                            <div class="control-group">
+                                <span class="status-dot dot-off" id="dot-ar-${num}"></span>
+                                <span class="control-label">AR COND.</span>
+                                <button class="btn-mini on" onclick="setDeviceStatus('${num}', 'ar', 'on')">ON</button>
+                                <button class="btn-mini off" onclick="setDeviceStatus('${num}', 'ar', 'off')">OFF</button>
+                            </div>
+                            <div class="schedule-info" id="sched-ar-${num}">
+                                <span>Ligou: --:--</span><span>Próx: 14:00</span>
+                            </div>
+                        </div>
+                        
+                        <!-- DATASHOW -->
+                        <div class="control-container">
+                            <div class="control-group">
+                                <span class="status-dot dot-off" id="dot-data-${num}"></span>
+                                <span class="control-label">DATASHOW</span>
+                                <button class="btn-mini on" onclick="setDeviceStatus('${num}', 'data', 'on')">ON</button>
+                                <button class="btn-mini off" onclick="setDeviceStatus('${num}', 'data', 'off')">OFF</button>
+                            </div>
+                            <div class="schedule-info" id="sched-data-${num}">
+                                <span>Ligou: --:--</span><span>Próx: 14:00</span>
+                            </div>
+                        </div>
+
+                        <!-- LUZES -->
+                        <div class="control-container">
+                            <div class="control-group">
+                                <span class="status-dot dot-on" id="dot-luz-${num}"></span>
+                                <span class="control-label">LUZES</span>
+                                <button class="btn-mini on" onclick="setDeviceStatus('${num}', 'luz', 'on')">ON</button>
+                                <button class="btn-mini off" onclick="setDeviceStatus('${num}', 'luz', 'off')">OFF</button>
+                            </div>
+                            <div class="schedule-info" id="sched-luz-${num}">
+                                <span>Ligou: 07:30</span><span>Desliga: 18:30</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        window.onload = function() { renderizarSalas(); };
+
+        // --- GRÁFICOS (CHART.JS) ---
+        Chart.defaults.color = '#aaaaaa';
+        Chart.defaults.font.family = "'Courier New', Courier, monospace";
+
+        function renderCharts() {
+            const ctxSemana = document.getElementById('chartSemana').getContext('2d');
+            new Chart(ctxSemana, { type: 'line', data: { labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'], datasets: [{ label: 'Consumo Realizado (kW/h)', data: [12.5, 14.2, 11.8, 15.0, 13.5, 4.2, 3.8], borderColor: '#00ffff', backgroundColor: 'rgba(0, 255, 255, 0.1)', borderWidth: 3, pointBackgroundColor: '#00ffff', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } });
+            
+            const ctxEquipamentos = document.getElementById('chartEquipamentos').getContext('2d');
+            new Chart(ctxEquipamentos, { type: 'doughnut', data: { labels: ['Ar Condicionado', 'Datashow', 'Iluminação', 'Outros'], datasets: [{ data: [55, 15, 22, 8], backgroundColor: ['#00ff00', '#00ffff', '#ffaa00', '#333333'], borderWidth: 2, borderColor: '#1a1a1a' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
+            
+            const ctxDias = document.getElementById('chartDias').getContext('2d');
+            new Chart(ctxDias, { type: 'bar', data: { labels: ['Sala 01', 'Sala 02'], datasets: [{ label: 'Ontem', data: [12.50, 8.30], backgroundColor: '#4d0000', borderColor: '#ff3333', borderWidth: 2 }, { label: 'Hoje', data: [10.20, 0.00], backgroundColor: '#004d00', borderColor: '#00ff00', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: 'transparent' } } } } });
+
+            const ctxAnual = document.getElementById('chartAnual').getContext('2d');
+            new Chart(ctxAnual, { type: 'bar', data: { labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'], datasets: [{ label: 'Ano Anterior (Sem Automação)', data: [450, 420, 480, 500, 510, 490, 520, 530, 510, 490, 460, 440], backgroundColor: 'rgba(255, 51, 51, 0.2)', borderColor: '#ff3333', borderWidth: 2 }, { label: 'Ano Atual (Com Automação)', data: [380, 350, 400, 410, 405, 380, 410, 400, 310, null, null, null], backgroundColor: 'rgba(0, 255, 0, 0.2)', borderColor: '#00ff00', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: 'transparent' } } } } });
+        }
+    </script>
+</body>
+</html>
